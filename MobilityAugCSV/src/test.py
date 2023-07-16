@@ -7,7 +7,7 @@ from nn.encoder_decoder import Encoder_Decoder
 
 MAX_EPOCHS = 30
 
-DATA = get_filenames("data")
+DATA = get_filenames("ScooterData")
 
 OPTIONS = {
     "preprocess": [StableFilter(stable_label=0, padding=30)],
@@ -31,7 +31,7 @@ SETTINGS = {
     "loss":'mae',
     "metrics": ['mae'],
     # "loss":"sparse_categorical_crossentropy",
-    # "metrics": ['accuracy'],
+    "metrics": ['accuracy'],
     "verbose": 1,
     "test_data": [unstable_test_data, stable_test_data]
 }

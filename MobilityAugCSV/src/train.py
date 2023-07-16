@@ -1,9 +1,9 @@
-from nn.lstm import LSTM
-from nn.encoder_decoder import Encoder_Decoder
-from preprocessor import StableFilter, UnstableFilter
-from mutils import ModelTrain, split_data, get_filenames
+from src.nn.lstm import LSTM
+from src.nn.encoder_decoder import Encoder_Decoder
+from src.preprocessor import StableFilter, UnstableFilter
+from src.mutils import ModelTrain, split_data, get_filenames
 
-DATA = get_filenames("data")
+DATA = get_filenames("ScooterData")
 
 OPTIONS = {
     "preprocess": StableFilter(stable_label=0, padding=30),
