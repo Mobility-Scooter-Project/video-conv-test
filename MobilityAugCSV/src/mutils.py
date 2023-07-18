@@ -13,10 +13,62 @@ settings = load_settings()
 labels2int = {b: a for a, b in enumerate(settings["labels"])}
 
 landmark_indices = [0, 11, 12, 13, 14, 15, 16, 23, 24]
-
+    
 
 def get_filenames(folder_path):
     return list(map(lambda y: os.path.join(folder_path, y), filter(lambda x: x[-4:]=='.csv', os.listdir(folder_path))))
+
+
+#=======================================
+########################################
+# Description: A function that gets the total number of rows with their corresponding label, and saves it to a CSV
+# Input: folder_path (path to get data from), save_path (path to save the data to), csv_name (name of the saved csv file **DON'T INCLUDE ".csv")
+# Output: None
+########################################
+#=======================================
+def get_num_labels_in_folder(folder_path, save_path, csv_name):
+    ############
+    ### Initialization
+    #############
+    # Create a dictionary containing label name and count corresponding to the label name
+    label_dict = {} # Initially empty, no labels have been read yet
+    
+    # Define directory + file list (follows: https://www.youtube.com/watch?v=_TFtG-lHNHI)
+    directory = folder_path                 # Dataset path
+    file_list = get_filenames(folder_path)  # List of all CSV file names
+    # numFiles = 0  # Variable to keep track of the number of files
+    
+    #############
+    ### Iteration
+    #############
+    # Iterate through each csv file (outer loop)
+    for path in file_list:
+        # numFiles += 1  # Increment to the total # of files
+        
+        df = pd.read_csv(path) # Dataframe from Nth csv file
+        
+        # Iterate through each element of Nth csv file (inner loop)
+        for i in df.index:
+            if df["label"][i] in label_dict:  # If a label DOES exists in the dictionary...
+                label_dict[df["label"][i]] += 1 # Increment to the corresponding count
+            else: # Otherwise (if label does NOT exist)...
+                label_dict[df["label"][i]] = 1  # Initialize the count as "1"
+
+    #############
+    ### Create dataframe to save
+    #############
+    final_dict = {"label_name": [], "num_rows": []}         # Dictionary to convert to dataframe
+    for key in label_dict:
+        final_dict["label_name"].append(key)              # ith label name in ith position of "label_name" array
+        final_dict["num_rows"].append(label_dict[key])    # ^ corresponding number of rows
+
+    #############
+    ### Save CSV
+    #############
+    new_df = pd.DataFrame(final_dict)                        # Convert the label dictionary into a dataframe
+    os.makedirs(save_path, exist_ok=True)                   # Make directory for where to save the file
+    new_df.to_csv(save_path + "\\" + csv_name + ".csv", index=False)     # Save the file
+
 
 # convert landmarks to only selected landmarks
 def convert(landmarks):
