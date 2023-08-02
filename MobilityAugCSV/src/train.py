@@ -28,9 +28,9 @@ SETTINGS = {
     "loss":'mae',
     "metrics": ['mae'],
     # "loss":"sparse_categorical_crossentropy",
-    # "metrics": ['accuracy'],
+    "metrics": ['accuracy'],
     "verbose": 1,
     "test_data": [unstable_test_data, stable_test_data]
 }
 
-ModelTrain(Encoder_Decoder, DATA[number_of_test_file:], OPTIONS, **SETTINGS).run()
+ModelTrain(LSTM, DATA[number_of_test_file:], OPTIONS, **SETTINGS).run()

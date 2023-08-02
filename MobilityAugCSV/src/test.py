@@ -36,4 +36,4 @@ SETTINGS = {
     "test_data": [unstable_test_data, stable_test_data]
 }
 
-ModelTest(Encoder_Decoder, DATA[number_of_test_file:], OPTIONS, **SETTINGS).run()
+ModelTest(LSTM, DATA[number_of_test_file:], OPTIONS, **SETTINGS).run()

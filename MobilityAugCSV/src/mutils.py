@@ -21,8 +21,184 @@ def get_filenames(folder_path):
 
 #=======================================
 ########################################
+# Description: A function that splits training/testing data appropriately for the time series data
+# Input: 
+    # df_normal: dataframe of non-augmented coordinate data
+    # test_size: the percentage of data to be allocated for test data (decimal number between 0-1)
+    # valid_size: the percentage of data to be allocated for validation data (decimal number between 0-1)
+    # (OPTIONAL) use_aug: boolean for whether augmented data should be included or not
+    # (OPTIONAL) df_aug: dataframe of augmented coordinate data
+# Output: 
+    # x_train: Input data for model training
+    # y_train: Corresponding labels for model training
+    # x_valid: Input data for model validation
+    # y_valid: Corresponding labels for model validation
+    # x_test: Input data for model testing
+    # y_test: Corresponding labels for model testing
+########################################
+#=======================================
+def get_train_test_data(df_normal, test_size, valid_size, use_aug=False, df_aug=None):
+    ############
+    ### Initialization
+    #############
+    df_input = df_normal.copy()                     # Copy the normal dataframe
+    df_target = df_input.pop("label")               # Make a dataframe of just the labels
+    groups = {}                                     # Dictionary for each label group (from normal dataframe)
+    current_group_label = None                      # Keeps track of the current label group
+    current_group = []
+    n_aug = {}                                      # Dictionary that keeps track of how many rows of augmented data exist for a corresponding label
+    x_train, x_valid, x_test = [], [], []           # Arrays that store training/testing/validation data
+    y_train, y_valid, y_test = [], [], []           # Arrays that store corresponding labels to ^^^
+    
+    
+    ############
+    ### Iterate through each row in the dataframe + correesponding index "i" for the NORMAL dataframe, and add it to the dictionary
+    ############
+    for i, row in enumerate(df_input.itertuples(index=False)):
+        
+        # If there is no label assigned to the current_group_label (first iteration):
+        if current_group_label is None:
+            # Assign to the label corresponding with ith row
+            current_group_label = df_target[i]
+        
+        # If the current label corresponds to the label of the ith row:
+        if current_group_label == df_target[i]:
+            # Append row to appropriate group
+            current_group.append(row)
+            
+        
+        else:
+            groups[current_group_label] = groups.get(current_group_label, [])
+            groups[current_group_label].append(current_group)
+            current_group_label = df_target[i]
+            current_group = []
+            
+    if len(current_group):
+        groups[current_group_label] = groups.get(current_group_label, [])
+        groups[current_group_label].append(current_group)
+
+
+    ###########
+    ### (OPTIONAL) Make another dictionary similar to the one above, but of purely augmented data. Include in training dataset
+    ###########
+    if use_aug:
+        
+        # ---------- Setup for augmneted data ---------------
+        df_input_aug = df_aug.copy()                 # Copy the augmented dataframe
+        df_target_aug = df_input_aug.pop("label")        # Make a dataframe of just the labels
+        groups_aug = {}                              # Dictionary for each label group (from normal dataframe)
+        current_group_label = None                   # Keeps track of the current label group
+        current_group = []
+    
+        # ---------- Same iteration for augmented data -----------------
+        for i, row in enumerate(df_input_aug.itertuples(index=False)):
+            
+            
+            # If there is no label assigned to the current_group_label (first iteration):
+            if current_group_label is None:
+                # Assign to the label corresponding with ith row
+                current_group_label = df_target_aug[i]
+            
+            # If the current label corresponds to the label of the ith row:
+            if current_group_label == df_target_aug[i]:
+                # Append row to appropriate group
+                current_group.append(row)
+                
+            # Otherwise if the label changes (when moving to next row)
+            else:
+                
+                # Append to the number of rows for the corresponding label
+                n_aug[current_group_label] = n_aug.get(current_group_label, 0)
+                n_aug[current_group_label] += len(current_group) + 1
+                
+                # Append the checked rows to the appropriate label group (+ check if there is no elements yet)
+                groups_aug[current_group_label] = groups_aug.get(current_group_label, [])
+                groups_aug[current_group_label].append(current_group)
+                current_group_label = df_target[i]
+                current_group = []
+                
+        # ----------- Handle remaining rows -------------------
+        
+        # If there are remaining elements to add, add them into the corresponding dictionary
+        if len(current_group):
+            # Also add remaining rows to the count as needed
+            n_aug[current_group_label] += len(current_group)
+            
+            # Add the rows to the corresponding label, make new empty array if there is none yet
+            groups_aug[current_group_label] = groups_aug.get(current_group_label, [])
+            groups_aug[current_group_label].append(current_group)
+            
+            
+        # ---------- Add the rows to the training dataset -------------
+        for label, group in groups_aug.items():
+            combined = [j for i in group for j in i]                        # Create array of all rows of a specific group
+            
+            # Append the rows of augmented data to the training set
+            for i in range(len(combined)):
+                (x_train).append(combined[i])
+                (y_train).append(label)
+        
+        print(y_train)
+        print("-----------")
+        print(len(y_train))
+        print("-----------")
+        print(n_aug)
+        print("-------")
+    
+    ############
+    ### Split the training/testing/validation data
+    #############
+    for label, group in groups.items():
+        # random.shuffle(group)
+        combined = [j for i in group for j in i]                        # Create array of all rows of a specific group
+        
+        n_aug[label] = n_aug.get(label, 0)                              # Double check for labels that exist in normal dataset but not in augmented dataset
+        
+        n_test = int(len(combined) * test_size)                         # Calculate amount of test data needed
+        n_valid = int(len(combined) * valid_size)                       # Calculate amount of validation data needed
+        n_train = len(combined) - n_test - n_valid - n_aug[label]       # Calculate amount of training data needed (OPTIONAL: FACTOR IN AUGMENTED DATA) (*NOTE: CALCULATION IS PROBABLY WRONG BUT IT WORKS FOR NOW)
+        
+        # If there are more augmented data samples than "real" ones
+        if n_train < 0:
+            n_train = 0                                                     # Reset to zero
+            rem = len(combined) - n_test - n_valid                          # Store remaining amount of data
+            valid_rem = valid_size/(valid_size+test_size)                   # % of remaining data to include for valid set
+            test_rem = test_size/(valid_size+test_size)                     # % of remaining data to include for test set
+            
+            # Add remaining number of rows
+            n_valid += int(rem * valid_rem)
+            n_test += int(rem * test_rem)
+
+        # Add rows
+        for i in range(len(combined)):
+            (
+                x_train if i < n_train else x_valid if i < n_train + n_valid else x_test
+            ).append(combined[i])
+            
+            (
+                y_train if i < n_train else y_valid if i < n_train + n_valid else y_test
+            ).append(label)
+            
+    return (
+        np.array(x_train),
+        np.array(y_train),
+        np.array(x_valid),
+        np.array(y_valid),
+        np.array(x_test),
+        np.array(y_test),
+    )
+    
+    
+    
+    
+
+#=======================================
+########################################
 # Description: A function that gets the total number of rows with their corresponding label, and saves it to a CSV
-# Input: folder_path (path to get data from), save_path (path to save the data to), csv_name (name of the saved csv file **DON'T INCLUDE ".csv")
+# Input: 
+    # folder_path: path to get data from
+    # save_path: path to save the data to
+    # csv_name: name of the saved csv file **DON'T INCLUDE ".csv"
 # Output: None
 ########################################
 #=======================================
@@ -31,11 +207,10 @@ def get_num_labels_in_folder(folder_path, save_path, csv_name):
     ### Initialization
     #############
     # Create a dictionary containing label name and count corresponding to the label name
-    label_dict = {} # Initially empty, no labels have been read yet
+    label_dict = {}                                 # Initially empty, no labels have been read yet
     
     # Define directory + file list (follows: https://www.youtube.com/watch?v=_TFtG-lHNHI)
-    directory = folder_path                 # Dataset path
-    file_list = get_filenames(folder_path)  # List of all CSV file names
+    file_list = get_filenames(folder_path)          # List of all CSV file names
     # numFiles = 0  # Variable to keep track of the number of files
     
     #############
@@ -45,28 +220,28 @@ def get_num_labels_in_folder(folder_path, save_path, csv_name):
     for path in file_list:
         # numFiles += 1  # Increment to the total # of files
         
-        df = pd.read_csv(path) # Dataframe from Nth csv file
+        df = pd.read_csv(path)                      # Dataframe from Nth csv file
         
         # Iterate through each element of Nth csv file (inner loop)
         for i in df.index:
-            if df["label"][i] in label_dict:  # If a label DOES exists in the dictionary...
-                label_dict[df["label"][i]] += 1 # Increment to the corresponding count
-            else: # Otherwise (if label does NOT exist)...
-                label_dict[df["label"][i]] = 1  # Initialize the count as "1"
+            if df["label"][i] in label_dict:            # If a label DOES exists in the dictionary...
+                label_dict[df["label"][i]] += 1             # Increment to the corresponding count
+            else:                                       # Otherwise (if label does NOT exist)...
+                label_dict[df["label"][i]] = 1              # Initialize the count as "1"
 
     #############
     ### Create dataframe to save
     #############
-    final_dict = {"label_name": [], "num_rows": []}         # Dictionary to convert to dataframe
+    final_dict = {"label_name": [], "num_rows": []}     # Dictionary to convert to dataframe
     for key in label_dict:
-        final_dict["label_name"].append(key)              # ith label name in ith position of "label_name" array
-        final_dict["num_rows"].append(label_dict[key])    # ^ corresponding number of rows
+        final_dict["label_name"].append(key)            # ith label name in ith position of "label_name" array
+        final_dict["num_rows"].append(label_dict[key])  # ^ corresponding number of rows
 
     #############
     ### Save CSV
     #############
-    new_df = pd.DataFrame(final_dict)                        # Convert the label dictionary into a dataframe
-    os.makedirs(save_path, exist_ok=True)                   # Make directory for where to save the file
+    new_df = pd.DataFrame(final_dict)                   # Convert the label dictionary into a dataframe
+    os.makedirs(save_path, exist_ok=True)               # Make directory for where to save the file
     new_df.to_csv(save_path + "\\" + csv_name + ".csv", index=False)     # Save the file
 
 
