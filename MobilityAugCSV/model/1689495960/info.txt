@@ -1,4 +1,0 @@
-batchsize: 40
-timestamp: 16
-optimizer: adam
-preprocess: Stable Filter
